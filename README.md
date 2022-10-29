@@ -1,8 +1,7 @@
-# rloader-generator
-Generates rLoader
+# Simple menu program or game launcher for DOS
 
 Example usage:
-
+You should have some games or programs in directories with long (human readable) name.
 
 * execute LIST.TXT generator.
 This will use your long directory names to generate a menu with them
