@@ -12,4 +12,9 @@ and copy to output directory with DOS limitations.
 Then 
 * copy the OUT directory into the directory you specified in -d (e.g. c:\menu) in your DOS machine. 
 * COPY menu.exe where your LIST.TXT is
+* execute menu.exe
+
+![image](https://user-images.githubusercontent.com/447481/198853928-85e6c8a6-7a16-4f82-b4b4-8fdcc9b6cafb.png)
+
+Simple but works!
 
