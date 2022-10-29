@@ -6,5 +6,5 @@ python3 main.py -i /Users/jsmolina/DIST/GAMES1  -i /Users/jsmolina/DIST/GAMES2 -
 
 
 Then copy the OUT directory into c:\MENU in your DOS machine. 
-Copy Rloader.exe and their files.
-execute: rloader /textmode pcxt
+COPY menu.exe where your LIST.TXT is
+
