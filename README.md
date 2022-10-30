@@ -39,11 +39,14 @@ Then
 * COPY menu.exe where your LIST.TXT is
 * execute menu.exe
 
-![image](https://user-images.githubusercontent.com/447481/198853928-85e6c8a6-7a16-4f82-b4b4-8fdcc9b6cafb.png)
 
 Simple but works!
 
+<img width="633" alt="image" src="https://user-images.githubusercontent.com/447481/198902575-1d5ac892-c79a-4447-81f7-1aa81dfe865f.png">
 
 
-https://user-images.githubusercontent.com/447481/198854012-b7f688c9-6b99-4b62-b837-4aa303b620c4.mov
+
+https://user-images.githubusercontent.com/447481/198902539-7361644f-7a5c-4429-8ee7-9aab299d1359.mov
+
+Collaborators: @jsmolina @Mills
 
