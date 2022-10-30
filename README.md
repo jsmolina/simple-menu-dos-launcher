@@ -1,4 +1,5 @@
 # Simple menu program or game launcher for DOS
+Inspired from Rloader (that's why you will find a rloader generator as well, not used on this readme).
 
 Example usage:
 You should have some games or programs in directories with long (human readable) name.
