@@ -40,7 +40,7 @@ Then
 * execute menu.exe
 
 
-Simple but works!
+Simple but works! It works on any CGA, EGA, MDA, ...
 
 <img width="633" alt="image" src="https://user-images.githubusercontent.com/447481/198902575-1d5ac892-c79a-4447-81f7-1aa81dfe865f.png">
 
