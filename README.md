@@ -21,7 +21,6 @@ Generating PCXT LIST.TXT /Users/jsmolina/OUT/LIST.TXT...
 1 - GO.BAT
 2 - COOL.COM
 3 - START.COM
-4 - CRACK.COM
 Which one? 1
 Executable will be exec.bat
 Copy Cool Croc to /Users/jsmolina/OUT/GAMES/COOLCRO...
