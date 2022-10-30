@@ -8,6 +8,11 @@
 #define KEY_RIGHT 77
 #define ESC 27
 #define ENTER 13
+#define MAX_ITEMS 100
+#define MAX_PATH_DEPTH 75
+#define MAX_EXECUTABLE_LENGTH 20 // more than enough for dos!
+#define MAX_NAME_LENGTH 40 // 35 + 5
+
 
 unsigned char Color_S = 0x0F; 
 unsigned char Color_N = 0x0F;
@@ -41,7 +46,7 @@ unsigned char MAP_RLE[] = {
 	0x00,
 };
 
-char path[100][150], executable[100][150], name[100][150];
+char path[MAX_ITEMS][MAX_PATH_DEPTH], executable[MAX_ITEMS][MAX_EXECUTABLE_LENGTH], name[MAX_ITEMS][MAX_NAME_LENGTH];
 
 void Clearkb(){
 	asm mov ah,00ch
@@ -151,7 +156,7 @@ int main() {
 					input = getch();
 					if (input == KEY_DOWN){
 						if(selected == 15) {
-							if (scroll + 15 < programs) scroll++;
+							if (scroll + 15 < (programs -1)) scroll++;
 						} else selected++;
 					}
 					if (input == KEY_UP) {
