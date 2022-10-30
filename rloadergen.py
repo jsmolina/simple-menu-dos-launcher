@@ -53,13 +53,42 @@ def dir_to_dos(longname):
 
 
 def find_executable(directory):
+    execs = []
+    executable = None
+
     for w in os.listdir(directory):
         filename = w.lower()
-        if filename.endswith('run.bat') or \
-                filename.endswith('.exe') or \
-                filename.endswith('.bat') or \
-                filename.endswith('.com'):
-            return w
+        if filename == 'run.bat' or filename == 'exec.bat':
+            executable = w
+
+        if filename == "setup.exe" or filename == "install.exe":
+            continue
+
+        if filename.endswith('.exe') or \
+            filename.endswith('.bat') or \
+            filename.endswith('.com'):
+            # add to user decision
+            execs.append(w)
+
+    if len(execs) > 1:
+        print(f"*** Multiple execs in {directory} *** ")
+        for i, exec in enumerate(execs):
+            print(f"{i} - {exec}")
+    elif len(execs) is 1:
+        executable = execs[0]
+
+    while not executable:
+        option = int(input("Which one? "))
+        if option < len(execs):
+            executable = execs[option]
+
+    if executable != "exec.bat":
+        with open(os.path.join(directory, 'exec.bat'), 'wb') as f:
+            f.write(f"{executable}".encode("utf-8"))
+        executable = "exec.bat"
+
+    print(f"Executable will be {executable}")
+    return executable
 
 
 def find_setup(directory):
@@ -67,7 +96,8 @@ def find_setup(directory):
         filename = w.lower()
         if filename.endswith('setup.exe') or \
                 filename.endswith('setsound.exe') or \
-                filename.endswith('install.exe'):
+                filename.endswith('install.exe') or \
+                filename.endswith('config.bat'):
             return w
 
 def main(in_dirs: list, out: str, dos_path: str):
