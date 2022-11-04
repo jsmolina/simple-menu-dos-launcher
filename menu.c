@@ -1,16 +1,16 @@
 #include <stdio.h>
 
-#define KEY_UP 72
-#define KEY_DOWN 80
+#define KEY_UP 0x4800
+#define KEY_DOWN 0x5000
 #define KEY_LEFT 75
 #define KEY_RIGHT 77
-#define ESC 27
-#define ENTER 13
+#define ESC 0x011B
+#define ENTER 0x1C0D
 #define MAX_ITEMS 100
 #define MAX_PATH_DEPTH 75
 #define MAX_EXECUTABLE_LENGTH 20 // more than enough for dos!
 #define MAX_NAME_LENGTH 40 // 35 + 5
-//14.028
+//10.482
 
 unsigned char Color_S = 0x0F; 
 unsigned char Color_N = 0x0F;
@@ -18,7 +18,10 @@ unsigned char Color_W = 0x70;
 unsigned char Color_E = 0x0F;
 unsigned char CARD = 0;
 unsigned char check = 0;
-unsigned char thumbnail[64] = {0};
+unsigned char thumbnail[64] = {0};//Line
+unsigned char start_dir_path[32] = {0};
+unsigned char file_error[16] = {" FILE NOT FOUND "};
+unsigned char image_error[16] = {" NO IMAGE FOUND "};
 unsigned char title[] = {"LOADER MENU   FOR PCXT"};
 unsigned char info[] = {"Select using cursors [ESC to exit, ENTER to run]"};
 unsigned char message0[] = {"Executing "};
@@ -49,6 +52,26 @@ unsigned char MAP_RLE[] = {
 };
 
 char path[MAX_ITEMS][MAX_PATH_DEPTH], executable[MAX_ITEMS][MAX_EXECUTABLE_LENGTH], name[MAX_ITEMS][MAX_NAME_LENGTH];
+
+
+//Functions
+
+void Wait_1s(){
+	asm {
+		mov ah,0x86
+		mov cx,0x0F
+		mov dx,0x4240
+		int 15h
+	}
+}
+
+void ClearScreen(){
+	asm{
+	mov ah, 0x00
+	mov al, 0x03  //text mode 80x25 16 colours
+	int 0x10
+	}
+}
 
 void Clearkb(){
 	asm mov ah,00ch
@@ -82,25 +105,26 @@ void Check_Graphics(){
 	ENDCARD:
 }
 
-int load() {
-    char str[150];
-    int j=0;
-    FILE* fp;
-    fp = fopen("LIST.TXT", "r");
-    if (fp == NULL) {
-        system("cls");
-        exit(1);
-    }
-    while (fgets(str, 150, fp)) {
-        // skip comments
-        if(str[0] == '#') {
-            continue;
-        }
-        sscanf(str,"%s\t%s\t%*s\t%*s\t%[^\n]", &path[j], &executable[j], &name[j]);
-        j++;
-    }
-    fclose(fp);
-    return j;
+int Load_List() {
+	char str[150];
+	int j=0;
+	FILE* fp;
+	fp = fopen("LIST.TXT", "r");
+	while (fgets(str, 150, fp)) {
+		// skip comments
+		if(str[0] == '#') {
+			continue;
+		}
+		sscanf(str,"%s\t%s\t%*s\t%*s\t%[^\n]", &path[j], &executable[j], &name[j]);
+		j++;
+	}
+	fclose(fp);
+	return j;
+	
+	// Read TXT
+	// if char == 0x20 (#), skip line (read until 0x0D, 0x0A or \r\n)
+	// else, read names: 
+	//		0x09 = tab (separates fields)
 }
 
 void Draw_Menu(){
@@ -172,9 +196,9 @@ void Update_List(unsigned short scroll, unsigned short selected){
 		asm jnz _loopc
 }
 
-//32x32 image, buggy
+//32x32 image
 void Get_Image(unsigned char *filename){
-	unsigned short handle;
+	unsigned short handle = 0;
 	unsigned char lines = 16;
 	unsigned char *name = &filename[0];
 
@@ -183,87 +207,130 @@ void Get_Image(unsigned char *filename){
 	asm mov al,0					//Read only
 	asm mov dx,name					//filename to open
 	asm int 21h
-	asm mov handle,ax				//if handle == 0x02 file not found
+	asm mov handle,ax
 	
-	//Point to video ram offset were the image is being displayed
-	asm mov ax,TILE_MAP
-	asm mov es,ax
-	asm mov di,(3*160) + 84			//ES:DI = VRAM
-	
-	_loop2:
-		//this reads 64 bytes and stores them in a3
-		asm mov ah,0x3F
-		asm mov cx,64
-		asm mov bx,handle
-		asm mov dx,offset thumbnail
+	//if handle == 0x02, file not found				
+	asm cmp ax,0x02					
+	asm jz _no_file
+		//else read file
+		//Point to video ram offset were the image is being displayed
+		asm mov ax,TILE_MAP
+		asm mov es,ax
+		asm mov di,(3*160) + 84			//ES:DI = VRAM
+		
+		_loop2:
+			//this reads 64 bytes and stores them in thumbnail
+			asm mov ah,0x3F
+			asm mov cx,64
+			asm mov bx,handle
+			asm mov dx,offset thumbnail
+			asm int 21h
+			
+			//This moves 64 bytes from thumbnail (ds:si) to vram E(S:DI)
+			asm mov si,offset thumbnail
+			asm mov cx,32
+			_loop3:
+				asm lodsw			//lds:[si] => ax, increment si
+				asm stosw			//ax => es:[di], increment di
+				asm loop _loop3
+			
+			//Jump to next line in video ram
+			asm add di,96
+			asm dec lines
+			asm jnz _loop2
+		
+		//Close file
+		asm mov ah,0x3E					
+		asm mov bx,handle				
 		asm int 21h
+		asm jmp _end_get_image
 		
-		//This moves 64 bytes from a3 (ds:si) to vram E(S:DI)
-		asm mov si,offset thumbnail
-		asm mov cx,32
-		_loop3:
-			asm lodsw			//lds:[si] => ax, increment si
-			asm stosw			//ax => es:[di], increment di
-			asm loop _loop3
-		
-		//Jump to next line in video ram
-		asm add di,96
-		asm dec lines
-		asm jnz _loop2
+	_no_file:
+		//print message at image position
+		asm mov di,(11*160) + 94
+		asm mov si,offset image_error
+		asm mov	ah,Color_S
+		asm mov cx,16
+		_loop_line:	
+			asm lodsb
+			asm stosw
+			asm loop _loop_line
 	
-	//Close file
-	asm mov ah,0x3E					
-	asm mov bx,handle				
-	asm int 21h
-	
-	//asm mov handle, offset thumbnail
-	
-	//printf("%04X %04X ",handle,&thumbnail[0]);
+	_end_get_image:
 }
 
+
+///MAIN FUNCTION
 int main() {
-    unsigned char programs;
+	unsigned short error = 0;
+	unsigned short programs;
 	unsigned short scroll = 0;
-    unsigned short selected = 0;
-    unsigned char exit = 0;
-    unsigned char input = 1;
-    unsigned char menu_path[30];
-    // store current directory
-	getcwd(menu_path, 29);
-	system("cls");
+	unsigned short selected = 0;
+	unsigned short input = 1;
+	getcwd(start_dir_path,32);
+	ClearScreen();
 	Check_Graphics();
 	Draw_Menu();
-	programs = load();
-    while(!exit) {
+	programs = Load_List();
+	
+	//MAIN LOOP
+	_main_loop:
 		if (input){
 			Update_List(scroll, selected);
-			Get_Image("menu_img.bin"); //fails when returning from program
+			Get_Image("menu_img.bin");
 			input = 0;
 			Clearkb();
 		}
-        while(!kbhit());
-		/*_waitkey:			//Wait for key press
-		asm in   al, 64h	//get Status
-		asm test al, 1		//buffer not empty?
-		asm jnz  _waitkey*/
+		_wait_again:
+		//Wait for key and read
+		asm mov ax, 00h
+		asm int 16h
+		asm mov input,ax //input = getch();
 		
-		input = getch();
-		switch (input){
-			case ESC: exit = 1; break;
-			case 0:
-				input = getch();
-				if (input == KEY_DOWN){
-					if(selected == 15) {
-						if (scroll + 15 < programs-1) scroll++;
-					} else selected++;
-				}
-				if (input == KEY_UP) {
-					if(selected == 0) {
-						if(scroll > 0)scroll--;
-					} else selected--;
-				}
-			break;
-			case ENTER:
+		//this is a switch case: switch(input)
+		//case ESC
+		asm cmp input,ESC
+		asm jnz _end_input_ESC
+			asm jmp _exit
+		_end_input_ESC:
+		
+		//case KEY_DOWN
+		asm cmp input,KEY_DOWN; asm jnz _end_input_KEY_DOWN
+				//if(selected == 15)
+				asm cmp selected,15; asm jnz _sel_not_15
+					asm mov ax,scroll
+					asm add ax,15		//scroll + 15
+					asm mov bx,programs
+					asm dec bx			//programs-1
+					//if (scroll + 15 < programs-1)
+					asm cmp ax,bx
+					asm jnb _is_not_below		
+						asm inc scroll	//scroll++;
+					_is_not_below:; asm jmp _end_main_loop
+				//else
+				_sel_not_15:; asm inc selected	//selected++;
+			asm jmp _end_main_loop
+		_end_input_KEY_DOWN:
+		
+		//case == KEY_UP
+		asm cmp input,KEY_UP; asm jnz _end_input_KEY_UP
+				//if(selected == 0)
+				asm cmp selected,0  
+				asm jnz _sel_not_0
+					//if(scroll > 0)
+					asm cmp scroll,0
+					asm jng _is_not_greater		
+						asm dec scroll	//scroll--;
+					_is_not_greater:
+					asm jmp _end_main_loop
+				//else
+				_sel_not_0: 			
+					asm dec selected	//selected--;
+			asm jmp _end_main_loop
+		_end_input_KEY_UP:
+		
+		//case == ENTER
+		asm cmp input,ENTER; asm jnz _main_loop
 				//print message at xy 3,22 color 0x0F
 				asm mov di,(22*160)+6
 				asm mov si,offset message0 
@@ -292,17 +359,68 @@ int main() {
 					asm stosw
 					asm jmp _loop3
 				end_of_string2:
-				sleep(1);
-				chdir(path[selected+scroll]);
-				system("cls");
-				system(executable[selected + scroll]);
-				sleep(1);
-				chdir(menu_path);
+				
+				Wait_1s();
+				
+				//chdir(path[selected+scroll]);
+				asm mov si,offset path
+				asm mov ax,selected
+				asm add ax,scroll
+				asm mov cx,75
+				asm mul cx
+				asm add si,ax
+				asm mov ah,0x3B
+				asm mov dx,si	//ASCIIZ path name
+				asm int 21h
+				
+				ClearScreen();
+				//system(executable[selected + scroll]);
+				//SS and SP should be preserved in code segment before call
+					//since a bug in DOS version 2.x destroys these
+				asm mov si,offset executable
+				asm mov ax,selected
+				asm add ax,scroll
+				asm mov cx,20
+				asm mul cx
+				asm add si,ax
+				asm mov ah,0x4B
+				asm mov al,0x00 //Load and run program
+				asm mov dx,si	//file path
+				asm int 21h
+				
+				///Return from program
+				asm cmp ax,0x02		//if error code == 2 (file not found)
+				asm jnz _no_error
+					//printf("File not found");
+					asm mov di,(11*160) + 60
+					asm mov si,offset file_error
+					asm mov	ah,Color_S
+					asm mov cx,16
+					_loop_line:	
+						asm lodsb
+						asm stosw
+						asm loop _loop_line
+					Wait_1s();
+				_no_error:
+				ClearScreen();
 				Clearkb();
+				
+				//chdir(start_dir_path);
+				asm mov ah,0x3B
+				asm mov dx,offset start_dir_path	//ASCIIZ path name
+				asm int 21h
+				
 				Draw_Menu();
-			break;
-		}
-    }
-	system("cls");
-    return 0;
+		_end_input_ENTER:
+		
+		//end of switch case
+	
+		// Loop again
+		_end_main_loop:
+		asm jmp _main_loop:
+	// End program
+	_exit:
+	
+	ClearScreen();
+	return 0;
 }
