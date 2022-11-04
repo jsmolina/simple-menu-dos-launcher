@@ -124,7 +124,7 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
                     # use 16 foreground colors for the upper block
                     elif (pix > 7) and (pix1 < 8):
                         fputc(b"\xDF", fout)
-                        fputc((pix1 << 4) + pix, fout)
+                        fputc(chr((pix1 << 4) + pix).encode("cp437"), fout)
                     # use 16 foreground colors for the lower block
                     elif (pix < 8) and (pix1 > 7):
                         fputc(b"\xDC", fout)
@@ -143,7 +143,7 @@ def main():
         epilog='')
     parser.add_argument('-i', '--input', default="thumb.bmp",
                         help='Input file bmp (32x32) 64 colors')
-    parser.add_argument('-o', '--output', default="menu.bin",
+    parser.add_argument('-o', '--output', default="menu_img.bin",
                         help='Output file in ansi')
     args = parser.parse_args()
     convert_image(in_file=args.input, out_file=args.output)
