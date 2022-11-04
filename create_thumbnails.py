@@ -1,9 +1,6 @@
 import struct
 import argparse
 
-translation_table = dict.fromkeys(map(ord, ' [](),.~!@#$%^&*{}: '), None)
-
-DOSnames = []
 
 """
 ESP
