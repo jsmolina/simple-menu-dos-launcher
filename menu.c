@@ -87,6 +87,10 @@ int load() {
     int j=0;
     FILE* fp;
     fp = fopen("MENU.TXT", "r");
+    if (fp == NULL) {
+        system("cls");
+        exit(1);
+    }
     while (fgets(str, 150, fp)) {
         // skip comments
         if(str[0] == '#') {
@@ -223,13 +227,16 @@ int main() {
     unsigned short selected = 0;
     unsigned char exit = 0;
     unsigned char input = 1;
+    unsigned char menu_path[30];
+    // store current directory
+	getcwd(menu_path, 29);
 	system("cls");
 	Check_Graphics();
 	Draw_Menu();
 	programs = load();
     while(!exit) {
 		if (input){
-			Update_List(scroll,selected);
+			Update_List(scroll, selected);
 			Get_Image("menu_img.bin"); //fails when returning from program
 			input = 0;
 			Clearkb();
@@ -290,6 +297,7 @@ int main() {
 				system("cls");
 				system(executable[selected + scroll]);
 				sleep(1);
+				chdir(menu_path);
 				Clearkb();
 				Draw_Menu();
 			break;
@@ -298,4 +306,3 @@ int main() {
 	system("cls");
     return 0;
 }
-
