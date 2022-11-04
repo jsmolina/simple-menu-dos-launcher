@@ -86,7 +86,7 @@ int load() {
     char str[150];
     int j=0;
     FILE* fp;
-    fp = fopen("MENU.TXT", "r");
+    fp = fopen("LIST.TXT", "r");
     if (fp == NULL) {
         system("cls");
         exit(1);
