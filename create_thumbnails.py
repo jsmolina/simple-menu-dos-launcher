@@ -1,7 +1,7 @@
 import struct
 import argparse
 
-
+chars = ["@", "J", "D", "%", "*", "P", "+", "Y", "$", ",", "."]
 """
 ESP
 ---
@@ -81,6 +81,7 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
             input_f.seek(-64, SEEK_CUR)
 
     offset = 0
+    last_color = b'\x00'
     with open(out_file, "wb") as fout:
         for y in range(16):
             for x in range(32):
@@ -105,19 +106,23 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
                     else:
                         fputc(b"\xB0", fout)  # Pattern dark
                     # Write foreground color, from 0 to 16 (high 4 bits = bkg color = 0)
-                    fputc(chr(pix & 15).encode("cp437"), fout)
+                    last_color = chr(pix & 15).encode("cp437")
+                    fputc(last_color, fout)
                 else:  # two color cells
                     # Don't use pattern colors
                     if pix > 15:
-                        fputc(b"E", fout)
-                        fputc(b"\xCF", fout)
+                        print(f"pix>15, unable to find color in {x},{y}")
+                        fputc(b'\xB0', fout)
+                        fputc(last_color, fout)
                     elif pix1 > 15:
-                        fputc(b"E", fout)
-                        fputc(b"\xCF", fout)
+                        print(f"pix1>15, unable to find color in {x},{y}")
+                        fputc(b'\xB0', fout)
+                        fputc(last_color, fout)
                     #  both pixels ar greater than 7
                     elif (pix > 7) and (pix1 > 7):
-                        fputc(b"E", fout)
-                        fputc(b"\xCF", fout)
+                        print(f"pix>7&pix1>7,unable to find color in {x},{y}")
+                        fputc(b'\xB0', fout)
+                        fputc(last_color, fout)
                     # use 16 foreground colors for the upper block
                     elif (pix > 7) and (pix1 < 8):
                         fputc(b"\xDF", fout)
@@ -136,7 +141,8 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
 def main():
     parser = argparse.ArgumentParser(
         prog='Ansi Thumbnail generator',
-        description='Generates thumbnail',
+        description="Generates thumbnail from a 32x32 bmp. "
+                    "GIMP tips: Disable run-length and enable don't write info in color space.",
         epilog='')
     parser.add_argument('-i', '--input', default="thumb.bmp",
                         help='Input file bmp (32x32) 64 colors')
