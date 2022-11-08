@@ -118,10 +118,13 @@ def main(in_dirs: list, out: str, dos_path: str):
                     continue
                 fulldirpath = os.path.join(origin, dirname)
                 executable = find_executable(fulldirpath)
-                setup_exec = find_setup(fulldirpath)
+                setup_exec = find_setup(fulldirpath) or ""
                 shortname = dir_to_dos(dirname)
-                gamename = dirname[0:35]
-                f.write(f'{dos_path}\\GAMES\\{shortname}\t{executable}\t{setup_exec}\t9000\t{gamename}'.encode('utf-8'))
+                gamename = dirname[0:32]
+                game_dir = f"{dos_path}\\GAMES\\{shortname}"
+                other = "9000"
+                line = f'{game_dir:<32}\t{executable:<16}\t{setup_exec:<16}\t{other:<8}\t{gamename:<32}'
+                f.write(line.encode('utf-8'))
                 f.write(b'\r\n')
                 current_game_dir = os.path.join(games_dir, shortname)
                 print(f'Copy {dirname} to {current_game_dir}...')
