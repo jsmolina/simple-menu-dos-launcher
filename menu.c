@@ -20,9 +20,6 @@ unsigned short clock_ticks = 0;
 unsigned short key_input = 1;
 unsigned short menu_scroll = 0;
 unsigned short menu_selected = 0;
-unsigned char exe_params[16] = {0};
-unsigned char exec_cmd[16] = {0};
-unsigned char exec_fcb[24] = {0};
 unsigned char Color_S = 0x0F;
 unsigned char Color_N = 0x0F;
 unsigned char Color_W = 0x70;
@@ -382,16 +379,6 @@ void Get_Image(){
 
 ///MAIN FUNCTION
 int main() {
-	//setblock(_segment,5*1024);
-
-	asm mov si, offset exe_params
-	asm mov word ptr [si+2],offset exec_cmd		//dword pointer to command line parameter string
-	asm mov word ptr [si+4],ds
-	asm mov word ptr [si+6],offset exec_fcb		//dword pointer to default FCB at address 5Ch (0)
-	asm mov word ptr [si+8],ds
-	asm mov word ptr [si+10],offset exec_fcb		//dword pointer to default FCB at address 6Ch (0)
-	asm mov word ptr [si+12],ds
-
 	//get drive
 	asm mov ah,19h
 	asm int 21h
@@ -502,31 +489,8 @@ int main() {
 			asm int 21h
 
 			ClearScreen();
-			// system(executable[menu_selected + menu_scroll]);
-			//SS and SP should be preserved in code segment before call
-				//since a bug in DOS version 2.x destroys these
-			asm mov si,offset exec1
-			asm mov ah,0x4B
-			asm mov al,0x00 //Load and run program
-			asm mov dx,si	//file name
-			asm mov bx, offset exe_params
-			asm int 21h
-			asm mov read_error,ax
-			Wait_1s();
-			///Return from program
-			asm cmp read_error,0x02		//if error code == 2 (file not found)
-			asm jnz _no_error
-				//printf("File not found");
-				asm mov di,(11*160) + 60
-				asm mov si,offset file_error
-				asm mov	ah,Color_S
-				asm mov cx,16
-				_loop_line:
-					asm lodsb
-					asm stosw
-					asm loop _loop_line
-				Wait_1s();
-			_no_error:
+			system(exec1);
+			
 			ClearScreen();
 			Clearkb();
 			
