@@ -111,7 +111,9 @@ def main(in_dirs: list, out: str, dos_path: str):
     print(f'Creating games directory in {games_dir}...')
     print(f'Generating PCXT LIST.TXT {list_txt}...')
     with open(list_txt, 'wb') as f:
-        f.write(f'#path\texecutable\tsetup\r\n'.encode('utf-8'))
+        comment = '# path\texecutable\tsetup\tother\tname'
+        comment_line = f'{comment:<108}\r\n'
+        f.write(comment_line.encode('utf-8'))
         for origin in in_dirs:
             for dirname in sorted(os.listdir(origin)):
                 if dirname.startswith('.'):
@@ -123,9 +125,8 @@ def main(in_dirs: list, out: str, dos_path: str):
                 gamename = dirname[0:32]
                 game_dir = f"{dos_path}\\GAMES\\{shortname}"
                 other = "9000"
-                line = f'{game_dir:<32}\t{executable:<16}\t{setup_exec:<16}\t{other:<8}\t{gamename:<32}'
+                line = f'{game_dir:<32}\t{executable:<16}\t{setup_exec:<16}\t{other:<8}\t{gamename:<32}\r\n'
                 f.write(line.encode('utf-8'))
-                f.write(b'\r\n')
                 current_game_dir = os.path.join(games_dir, shortname)
                 print(f'Copy {dirname} to {current_game_dir}...')
                 shutil.copytree(fulldirpath, current_game_dir)
