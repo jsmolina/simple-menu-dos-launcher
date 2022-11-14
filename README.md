@@ -39,6 +39,10 @@ Then
 * COPY menu.exe where your LIST.TXT is
 * execute menu.exe
 
+Optional:
+* Input a BMP to create_thumbnails.py and
+* Copy menu_img.bin in every game folder and you'll get an ansi miniature for each game!
+
 
 Simple but works! It works on any CGA, EGA, MDA, ...
 
