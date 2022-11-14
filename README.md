@@ -59,5 +59,6 @@ tasm pcxtmenu.asm
 tlink /t pcxtmenu.obj
 
 
-Collaborators: @jsmolina @Mills
+# Collaborators
+@jsmolina @Mills
 
