@@ -46,7 +46,7 @@ Optional:
 
 Simple but works! It works on any CGA, EGA, MDA, ...
 
-<img width="633" alt="image" src="https://user-images.githubusercontent.com/447481/198902575-1d5ac892-c79a-4447-81f7-1aa81dfe865f.png">
+![image](https://user-images.githubusercontent.com/447481/201638621-91b2cc8c-1ea2-4aec-aa00-937f8cfd991b.png)
 
 
 
