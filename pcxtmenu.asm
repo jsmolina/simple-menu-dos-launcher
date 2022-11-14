@@ -70,16 +70,20 @@ main    proc
 		cmp key_input,1C0Dh
 		jnz _main_loop
 			call Point_ES_VRAM
-			mov	ah,0Fh;text color
-			;print message at xy 3,22 color 0x0F
+			;delete box
 			mov di,(22*160)+6
-			mov si,offset message0 
-			
+			mov ax,0
+			mov cx,56
+			rep stosw
+			;print "running" at xy 3,22 color 0x0F
+			mov	ah,0Fh;text color
+			mov di,(22*160)+6
+			mov si,offset message0
 			mov cx,9
 			call print
-			;print executable[menu_selected + scroll) at xy 13,22 color 0x0F
-			mov di,(22*160)+26
-			mov si,offset exec1
+			;print "executable" at xy 13,22 color 0x0F
+			mov di,(22*160)+24
+			mov si,offset exec1 +1
 			mov	cx,16
 			call print
 			
@@ -117,10 +121,6 @@ main    proc
 			cli
 			mov es,CS:[save_ES]
 			mov ds,CS:[save_DS]
-			mov ss,CS:[save_SS]
-			;mov sp,0
-			;pop old_sp
-			;pop old_ss
 			sti
 			
 			;;mov cs,ds
@@ -128,11 +128,6 @@ main    proc
 			;Return from program
 			call Point_ES_VRAM
 			jc	_error		;if there was an error running the program
-			;try something, like pointing to VRAM
-			mov di,180
-			mov word ptr es:[di],0f01h
-			call wait_1s
-			
 			call wait_1s
 			call clear_screen
 			jmp _no_error
@@ -250,12 +245,11 @@ wait_1s	endp
 Set_Up proc
 	mov CS:[save_DS],ds
 	mov CS:[save_ES],es
-	mov CS:[save_SS],ss
 	call Point_ES_VRAM
 	;setup exe parameters
-    mov cmdseg,cs
-    mov FCB1seg,cs
-    mov FCB2seg,cs
+    ;mov cmdseg,cs
+    ;mov FCB1seg,cs
+    ;mov FCB2seg,cs
 	
 	;getcwd(start_dir_path,32);
 	mov ah,19h						;get drive
@@ -578,15 +572,14 @@ start_dir_path   		db "_:\ ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 
 ;ExecBlk Struc
-Program_Commands 		dw 00h,0dh	; no commands
-
-Psp     				dw 0	; create and allocate a duplicate of current environment for child.
-Cmdline					dw offset Program_Commands
-CmdSeg  				dw ?	; CS or DS in tiny model
-FCB1    				dw 5ch
-FCB1seg 				dw ?	; CS or DS in tiny model
-FCB2    				dw 6ch
-FCB2seg 				dw ?	; CS or DS in tiny model
+;Program_Commands 		dw 00h,0dh	; no commands
+;Psp     				dw 0	; create and allocate a duplicate of current environment for child.
+;Cmdline					dw offset Program_Commands
+;CmdSeg  				dw ?	; CS or DS in tiny model
+;FCB1    				dw 5ch
+;FCB1seg 				dw ?	; CS or DS in tiny model
+;FCB2    				dw 6ch
+;FCB2seg 				dw ?	; CS or DS in tiny model
 
 
 
