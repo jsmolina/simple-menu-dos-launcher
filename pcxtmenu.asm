@@ -2,7 +2,7 @@
 ;TINY MENU FOR PC XT
 ;-------------------
 
-;This will use very little RAM to avoid issues even without EMS on 8088-86
+;This will use 1.5KB of RAM to avoid issues even without EMS on 8088-86
 ;It was also fun trying to make a whole program in assembly and making it 
 ;look like C.
 
@@ -19,9 +19,12 @@
 .model tiny
 .code
 org     100h
-;1.561  
+;1.505  
 
 start:
+
+;MAIN PROGRAM
+;##################
 main    proc
 	call Set_Up
 	call clear_screen
@@ -43,6 +46,14 @@ main    proc
 		xor ax,ax
 		int 16h
 		mov key_input,ax ;key_input = getch();
+		call clear_kb
+		;cmp key_input,0
+		;jg _skip_joystick
+		;	mov ah,84h
+		;	mov dx,0
+		;	int 15h           ;call joystick button interruption: returns value in
+		;	mov key_input,ax
+		;_skip_joystick:
 		;cli;disable interrupts
 		
 		;this is a switch case: switch(key_input)
@@ -70,35 +81,44 @@ main    proc
 		cmp key_input,1C0Dh
 		jnz _main_loop
 			call Point_ES_VRAM
-			;delete box
+			
+			;delete bottom text box
 			mov di,(22*160)+6
 			mov ax,0
 			mov cx,56
 			rep stosw
+			
 			;print "running" at xy 3,22 color 0x0F
 			mov	ah,0Fh;text color
 			mov di,(22*160)+6
 			mov si,offset message0
 			mov cx,9
-			call print
-			;print "executable" at xy 13,22 color 0x0F
+			_loop_print0:	
+				lodsb
+				stosw
+				loop _loop_print0
+			
+			;print "exe name" at xy 13,22 color 0x0F
 			mov di,(22*160)+24
 			mov si,offset exec1 +1
 			mov	cx,16
-			call print
+			_loop_print1:	
+				lodsb
+				stosw
+				loop _loop_print1
 			
 			call wait_1s
 			call clear_screen
 			
-			;run program
-			mov es,cs:[save_ES]
-			;free ram
-			mov bx,offset pspblk+0Fh
-			mov sp,offset start
+			mov es,cs:[save_ES];restore ES
+			
+			;Free ram not used by the program
+			mov bx,offset pspblk+0Fh	;End of code
+			mov sp,offset start			;start of code
 			mov cl,4
-			shr bx,cl		;bx = size of program/16	
+			shr bx,cl					;bx = size of program/16	
 			mov ah,4ah
-			int 21h
+			int 21h						;setblock function
 			
 			jnc _continue
 			jmp _exit
@@ -108,26 +128,20 @@ main    proc
 			mov dx,offset path1	;ASCIIZ path name
 			mov ah,3Bh
 			int 21h
-			;run
+			;run program
 			;sti;enable interrupts
-			;lea     dx,exec1
-			;lea     bx,Psp
-			;mov     ax,4b00h
-			;int     21h
+			mov si,offset exec1			;exe name
+			int 2Eh						;Function "system call", it processes whatever is in exec1
 			
-			;lds     si,offset exec1
-			mov si,offset exec1
-			int 2Eh
+			;Return from program
 			cli
-			mov es,CS:[save_ES]
+			;restore es and ds, CS is always the code segment, where this code and its variables reside.
+			mov es,CS:[save_ES]			
 			mov ds,CS:[save_DS]
 			sti
 			
-			;;mov cs,ds
-			;cli;disable interrupts
-			;Return from program
 			call Point_ES_VRAM
-			jc	_error		;if there was an error running the program
+			jc	_error		;did int 2Eh return an error?
 			call wait_1s
 			call clear_screen
 			jmp _no_error
@@ -137,8 +151,11 @@ main    proc
 				mov di,(11*160) + 60
 				mov si,offset file_error
 				mov	ah,Color_S
-				mov cx,16
-				call print
+				mov cx,14
+				_loop_print2:	
+					lodsb
+					stosw
+					loop _loop_print2
 				call wait_1s
 			_no_error:
 			
@@ -152,27 +169,21 @@ main    proc
 			call count_programs
 		_end_input_ENTER:
 
-		jmp _main_loop
+		jmp _main_loop		;go back to main loop
 		
 	_exit:
 	;sti;enable interrupts
 	call clear_screen
 	mov	ax,4c00h
 	int	21h
-main    endp
+main    endp				;End of MAIN program
 
 
 
-;saved some bytes
-;#########################
-print proc near
-	_loop_print:	
-		lodsb
-		stosw
-		loop _loop_print
-	ret
-print endp
 
+;---------------
+;   FUNCTIONS
+;---------------
 
 
 ;clear the screen by setting text mode
@@ -193,24 +204,24 @@ clear_kb proc near
 clear_kb endp
 
 
-;Reduce snow by waiting to horizontal and vertical retraces
+;Reduce snow by waiting to vertical retraces
 ;#########################
-Wait_Retraces proc
-	mov dx,3DAh
-	_WDN:						;wait until we're out of some random retrace we may have started in}
-	in   al,dx					;grab status bits}
-	test al,1					;are we in some random horizontal sync cycle?}
-	jnz  _WDN						;if so, keep waiting}
-	_WDR:						;wait until we're in either vert or horiz retrace}
-	in   al,dx					;grab status bits}
-	shr  al,1					;shift bit into carry -- were we in retrace?}
-	jnc  _WDR  
+Wait_Retraces proc;vertical
+	mov	dx,VSYNC
+	WaitNotVsync:
+	in      al,dx
+	test    al,08h
+	jnz		WaitNotVsync
+	WaitVsync:
+	in      al,dx
+	test    al,08h
+	jz		WaitVsync
 	ret
 Wait_Retraces endp
 
 
 
-;VRAM at ES:DI
+;VRAM (text cells) at ES:DI
 ;#########################
 Point_ES_VRAM proc near
 	mov ax,TILE_MAP
@@ -246,11 +257,7 @@ Set_Up proc
 	mov CS:[save_DS],ds
 	mov CS:[save_ES],es
 	call Point_ES_VRAM
-	;setup exe parameters
-    ;mov cmdseg,cs
-    ;mov FCB1seg,cs
-    ;mov FCB2seg,cs
-	
+
 	;getcwd(start_dir_path,32);
 	mov ah,19h						;get drive
 	int 21h
@@ -261,7 +268,7 @@ Set_Up proc
 	add si,3						;skip C:\-----   
 	mov ah,47h
 	xor dl,dl						;drive number (0 = default, 1 = A:)
-	int 21h
+	int 21h							;get path
 	
 	ret
 Set_Up endp
@@ -293,13 +300,19 @@ draw_menu proc near
 	mov si,offset mtitle 
 	mov	ah,Color_S
 	mov cx,20
-	call print    
+	_loop_print3:	
+		lodsb
+		stosw
+		loop _loop_print3    
 		
 	mov di,(22*160)+34
 	mov si,offset info
 	mov	ah,0Fh
 	mov cx,40
-	call print
+	_loop_print7:	
+		lodsb
+		stosw
+		loop _loop_print7
 	ret
 draw_menu	endp
 
@@ -330,9 +343,11 @@ get_image proc near
 			int 21h
 			
 			;This moves 64 bytes from read_buffer (ds:si) to vram E(S:DI)
+			ifdef NO_SNOW
+			call Wait_Retraces
+			endif
 			mov si,offset read_buffer
 			mov cx,32
-			call Wait_Retraces
 			_loop_transfer:
 				lodsw			;ds:[si] => ax, increment si
 				stosw			;ax => es:[di], increment di
@@ -352,8 +367,10 @@ get_image proc near
 	_no_file:
 		mov ax,0
 		_loop_delete:
-			mov cx,32
+			ifdef NO_SNOW
 			call Wait_Retraces
+			endif
+			mov cx,32
 			rep stosw
 			add di,96
 			dec read_lines
@@ -363,7 +380,10 @@ get_image proc near
 		mov si,offset file_error
 		mov	ah,Color_S
 		mov cx,14
-		call print
+		_loop_print4:	
+			lodsb
+			stosw
+			loop _loop_print4
 	
 	_end_get_image:
 	mov dx,offset start_dir_path
@@ -373,10 +393,10 @@ get_image proc near
 get_image endp
 
 
-;Read and update list from file
+
+;Read and update list reading from list.txt
 ;############################
 update_list proc near
-
 	xor cx,cx	;a bug?
 	mov read_lines,0
 	mov ax,3D00h					;open file, Read only
@@ -386,7 +406,6 @@ update_list proc near
 	
 	;We now know there is a list.txt, read file
 	mov di,(3*160)+8			;ES:DI = VRAM
-	
 	
 	;Seek list.txt 
 	mov ax,menu_scroll
@@ -400,6 +419,9 @@ update_list proc near
 	
 	;Write 16 names
 	_loop_read_list:
+		ifdef NO_SNOW
+		call Wait_Retraces
+		endif
 		;this reads 110 bytes (one line) and stores them in read_buffer
 		mov ah,3Fh
 		mov cx,110
@@ -441,9 +463,11 @@ update_list proc near
 		;if item not selected, write names to VRAM
 		mov si,offset read_buffer+76
 		;This moves 16 bytes from buffer (ds:si) to vram (ES:DI)
-		call Wait_Retraces
 		mov cx,32
-		call print
+		_loop_print5:	
+			lodsb
+			stosw
+			loop _loop_print5
 		
 		;Jump to next line in video ram
 		add di,128-32
@@ -457,7 +481,6 @@ update_list proc near
 	mov bx,file_handle				
 	int 21h
 	ret
-;>
 update_list endp
 
 
@@ -500,7 +523,10 @@ count_programs proc near
 		mov si,offset file_error
 		mov	ah,Color_S
 		mov cx,14
-		call print
+		_loop_print6:	
+			lodsb
+			stosw
+			loop _loop_print6
 		
 		pop es
 		call wait_1s
@@ -510,6 +536,7 @@ count_programs proc near
 	sub programs,2
 	ret
 count_programs endp
+
 
 
 ;MOVE UP
@@ -555,43 +582,32 @@ menu_down endp
 
 
 
-;########################
-;--VARIABLES AND ARRAYS--
-;########################
+;------------------------
+;  VARIABLES AND ARRAYS  
+;------------------------
+
 
 key_input 				dw 1
 clock_ticks				db 0
+
+;Store segments
 save_DS					dw 0
 save_ES					dw 0
 save_SS					dw 0
+
 ;Menu & file
 programs				dw 0
 menu_scroll 			dw 0
 menu_selected 			dw 0
 start_dir_path   		db "_:\ ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
-
-;ExecBlk Struc
-;Program_Commands 		dw 00h,0dh	; no commands
-;Psp     				dw 0	; create and allocate a duplicate of current environment for child.
-;Cmdline					dw offset Program_Commands
-;CmdSeg  				dw ?	; CS or DS in tiny model
-;FCB1    				dw 5ch
-;FCB1seg 				dw ?	; CS or DS in tiny model
-;FCB2    				dw 6ch
-;FCB2seg 				dw ?	; CS or DS in tiny model
-
-
-
 LIST_LINE_LENGTH		dw 110	;Line length of list.txt
 file_handle				dw 0
 read_buffer				db 110 dup (0) ;
 read_lines				dw 16
 
-;Read list variables
 LIST_FILE 				db 'LIST.TXT',0
 path1					db 33 dup (0) 
-;exec1   				db 17 dup (0) 
 exec1					db 11h,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0Dh
 
 ;Read Thumbnail variables
@@ -609,10 +625,12 @@ ifdef MDA
 Color_S					db 070h 
 Color_N					db 010h
 TILE_MAP				dw 0B000h
+VSYNC					dw 03BAh
 else
 Color_S					db 3Fh
 Color_N					db 1Fh
 TILE_MAP				dw 0B800h
+VSYNC					dw 03DAh
 endif
 
 ;Character map "compressed" in RLE format
