@@ -52,7 +52,7 @@ Simple but works! It works on any CGA, EGA, MDA, ...
 
 https://user-images.githubusercontent.com/447481/198902539-7361644f-7a5c-4429-8ee7-9aab299d1359.mov
 
-# Compiling
+# Compiling the assembler version
 Using Borland C++ 3:
 ```
 makeasm.bat
