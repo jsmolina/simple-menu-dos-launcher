@@ -19,7 +19,7 @@
 .model tiny
 .code
 org     100h
-;1.505  
+;1.496 
 
 start:
 
@@ -42,7 +42,6 @@ main    proc
 		_no_input:
 		
 		;Wait for key and read
-		;sti;enable interrupts
 		xor ax,ax
 		int 16h
 		mov key_input,ax ;key_input = getch();
@@ -54,7 +53,6 @@ main    proc
 		;	int 15h           ;call joystick button interruption: returns value in
 		;	mov key_input,ax
 		;_skip_joystick:
-		;cli;disable interrupts
 		
 		;this is a switch case: switch(key_input)
 		;case ESC
@@ -111,7 +109,6 @@ main    proc
 			call clear_screen
 			
 			mov es,cs:[save_ES];restore ES
-			
 			;Free ram not used by the program
 			mov bx,offset pspblk+0Fh	;End of code
 			mov sp,offset start			;start of code
@@ -128,17 +125,16 @@ main    proc
 			mov dx,offset path1	;ASCIIZ path name
 			mov ah,3Bh
 			int 21h
+			
 			;run program
-			;sti;enable interrupts
 			mov si,offset exec1			;exe name
 			int 2Eh						;Function "system call", it processes whatever is in exec1
 			
 			;Return from program
-			cli
 			;restore es and ds, CS is always the code segment, where this code and its variables reside.
-			mov es,CS:[save_ES]			
+			mov es,CS:[save_ES]		
 			mov ds,CS:[save_DS]
-			sti
+			mov sp,CS:[save_SP]
 			
 			call Point_ES_VRAM
 			jc	_error		;did int 2Eh return an error?
@@ -172,7 +168,6 @@ main    proc
 		jmp _main_loop		;go back to main loop
 		
 	_exit:
-	;sti;enable interrupts
 	call clear_screen
 	mov	ax,4c00h
 	int	21h
@@ -256,6 +251,7 @@ wait_1s	endp
 Set_Up proc
 	mov CS:[save_DS],ds
 	mov CS:[save_ES],es
+	mov CS:[save_SP],sp
 	call Point_ES_VRAM
 
 	;getcwd(start_dir_path,32);
@@ -333,34 +329,29 @@ get_image proc near
 	;if handle == 0x02, file not found				
 	cmp file_handle,2					
 	jz _no_file
+		ifdef NO_SNOW
+		call Wait_Retraces
+		endif
+		mov bx,file_handle
 		;else read file
 		_loop_img_line:
-			;this reads 64 bytes and stores them in read_buffer
+			
+			;this reads 64 bytes and stores them in VRAM
+			mov ax,es
+			mov ds,ax
 			mov ah,3Fh
 			mov cx,64
-			mov bx,file_handle
-			mov dx,offset read_buffer
+			mov dx,di;destination ds:dx (= es:di)
 			int 21h
-			
-			;This moves 64 bytes from read_buffer (ds:si) to vram E(S:DI)
-			ifdef NO_SNOW
-			call Wait_Retraces
-			endif
-			mov si,offset read_buffer
-			mov cx,32
-			_loop_transfer:
-				lodsw			;ds:[si] => ax, increment si
-				stosw			;ax => es:[di], increment di
-				loop _loop_transfer
+			mov ds,CS:[save_DS]	;restore ds
 			
 			;Jump to next line in video ram
-			add di,96
+			add di,96+64
 			dec read_lines
 			jnz _loop_img_line
 		
 		;Close file
-		mov ah,3Eh					
-		mov bx,file_handle				
+		mov ah,3Eh								
 		int 21h
 		jmp _end_get_image
 		
@@ -417,16 +408,13 @@ update_list proc near
 	mov bx,file_handle
 	int 21h	
 	
+	mov dx,offset read_buffer
 	;Write 16 names
 	_loop_read_list:
-		ifdef NO_SNOW
-		call Wait_Retraces
-		endif
 		;this reads 110 bytes (one line) and stores them in read_buffer
 		mov ah,3Fh
 		mov cx,110
 		mov bx,file_handle
-		mov dx,offset read_buffer
 		int 21h
 		
 		;If line != 110, goto end of function
@@ -463,6 +451,9 @@ update_list proc near
 		;if item not selected, write names to VRAM
 		mov si,offset read_buffer+76
 		;This moves 16 bytes from buffer (ds:si) to vram (ES:DI)
+		ifdef NO_SNOW
+		call Wait_Retraces
+		endif
 		mov cx,32
 		_loop_print5:	
 			lodsb
@@ -594,6 +585,7 @@ clock_ticks				db 0
 save_DS					dw 0
 save_ES					dw 0
 save_SS					dw 0
+save_SP					dw 0
 
 ;Menu & file
 programs				dw 0
@@ -659,4 +651,3 @@ MAP_RLE:
 
 pspblk  label   byte
 end     main
- 
