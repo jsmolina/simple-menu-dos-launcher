@@ -108,7 +108,11 @@ main    proc
 			call wait_1s
 			call clear_screen
 			
+			
 			mov es,cs:[save_ES];restore ES
+			
+			cmp _EMS,'E';If EMS or loaded high, you don't need to resize (also it crashes)
+			jz _continue
 			;Free ram not used by the program
 			mov bx,offset pspblk+0Fh	;End of code
 			mov sp,offset start			;start of code
@@ -131,7 +135,7 @@ main    proc
 			int 2Eh						;Function "system call", it processes whatever is in exec1
 			
 			;Return from program
-			;restore es and ds, CS is always the code segment, where this code and its variables reside.
+			;restore es, ds and sp. CS is always the code segment, where this code and its variables reside.
 			mov es,CS:[save_ES]		
 			mov ds,CS:[save_DS]
 			mov sp,CS:[save_SP]
@@ -249,6 +253,10 @@ wait_1s	endp
 ;init
 ;#########################
 Set_Up proc
+	;get parameters, they start at ds:81h, only get a byte
+	mov al,ds:[82h]
+	mov _EMS,al
+	
 	mov CS:[save_DS],ds
 	mov CS:[save_ES],es
 	mov CS:[save_SP],sp
@@ -566,6 +574,10 @@ menu_down proc near
 			jmp _main_loop
 		;else
 		_sel_not_15:
+			;if (menu_selected < programs)
+			mov ax,programs
+			cmp menu_selected,ax
+			jnb _is_not_below
 			inc menu_selected		;menu_selected++;
 	ret
 menu_down endp
@@ -577,6 +589,7 @@ menu_down endp
 ;  VARIABLES AND ARRAYS  
 ;------------------------
 
+_EMS					db 0
 
 key_input 				dw 1
 clock_ticks				db 0
