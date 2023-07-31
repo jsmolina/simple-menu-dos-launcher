@@ -63,6 +63,9 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
     with open(in_file, "rb") as input_f:
         file_data = input_f.read(54)
 
+    image_size = struct.unpack_from('<i', file_data, 2)[0]
+    image_offset = struct.unpack_from('<i', file_data, 10)[0]  # 0x0136 by default
+    
     image_width = struct.unpack_from('<i', file_data, 18)[0]
     image_height = struct.unpack_from('<i', file_data, 22)[0]
     print(image_width, image_height)
@@ -75,13 +78,17 @@ def convert_image(in_file="thumb.bmp", out_file="menu.bin"):
 
     data = []
     with open(in_file, "rb") as input_f:
-        input_f.seek(0x0136 + 1024 - 32, SEEK_SET)
+        input_f.seek(image_offset + 1024 - 32, SEEK_SET)
         for y in range(32):
             data += input_f.read(32)
             input_f.seek(-64, SEEK_CUR)
 
     offset = 0
     last_color = b'\x00'
+    if '.bmp' in out_file:
+        out_file = out_file.replace('.bmp', '')
+    if '.bin' not in out_file:
+        out_file += out_file + '.bin'
     with open(out_file, "wb") as fout:
         for y in range(16):
             for x in range(32):
