@@ -60,5 +60,5 @@ makeasm.bat
 ```
 
 # Collaborators
-@jsmolina @Mills
+@jsmolina @Mills @Newsdee 
 
