@@ -39,6 +39,7 @@ Then
 * copy the OUT directory into the directory you specified in -d (e.g. c:\menu) in your DOS machine. 
 * COPY menu.exe where your LIST.TXT is
 * execute menu.exe
+* NOTE: `lh pcxtmenu E`  will try to load it in expanded memory.
 
 Optional:
 * Input a BMP to create_thumbnails.py and
