@@ -2,6 +2,9 @@
 Inspired from Rloader (that's why you will find a rloader generator as well, not used on this readme).
 It takes only 1K of your base memory.
 
+* It runs on real DOS hardware or from within Dosbox, either emulated or real physical system; it is not a Window/Mac/Linux application 
+* simple-menu-dos-launcher is a 16bit, real-mode application and will work on any PC hardware, it just uses text mode.
+
 Example usage:
 You should have some games or programs in directories with long (human readable) name.
 
