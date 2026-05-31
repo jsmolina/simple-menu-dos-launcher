@@ -244,7 +244,11 @@ wait_1s proc near
 		cmp clock_ticks,15
 		jg _stop
 		mov clock_ticks,dl		;dx (clock ticks) to variable
-		loop _wait
+		; FIX 6: Original "loop _wait" here re-used CX which was set to 0
+		; above, causing 65535 spurious extra iterations before the register
+		; wrapped to zero and LOOP fell through. CX is not the intended
+		; counter — the exit condition is clock_ticks > 15. Use jmp instead.
+		jmp _wait
 	_stop:
 	ret
 wait_1s	endp
@@ -410,9 +414,13 @@ update_list proc near
 	mov ax,menu_scroll
 	inc ax
 	mov bx,LIST_LINE_LENGTH
-	mul bx						;ax = scroll*line_length
-	mov dx,ax					;File position
-	mov ax,4201h				;Move pointer from current location
+	mul bx						;ax = scroll*line_length, dx = high word
+	; FIX 4: MUL gives 32-bit result in DX:AX. INT 21h AH=42h takes
+	; CX:DX as the seek offset (CX=high word, DX=low word).
+	; Original code lost DX and passed AX in DX — wrong for large lists.
+	mov cx,dx					;CX = high word of file offset
+	mov dx,ax					;DX = low word of file offset
+	mov ax,4200h				;Move pointer from start of file (absolute seek)
 	mov bx,file_handle
 	int 21h	
 	
@@ -445,6 +453,8 @@ update_list proc near
 				mov word ptr path1[bx],ax
 				add bx,2
 				loop _loopA
+			; FIX 3: Guarantee null terminator at path1[32] so ASCIIZ is valid
+			mov byte ptr path1[32],0
 			;store exe
 			inc si				;skip tab
 			xor bx,bx
@@ -530,9 +540,21 @@ count_programs proc near
 		pop es
 		call wait_1s
 		call clear_screen
-		jmp _exit
+		; Cannot jump into main's _exit label from another proc (UASM scope rule).
+		; Perform the exit directly here instead.
+		mov ax,4c00h
+		int 21h
 	_end_count:
+	; FIX 5: Original "sub programs,2" wraps to 0xFFFE/0xFFFF when fewer
+	; than 2 entries exist, causing menu_down to allow 65535-item scrolling.
+	; Guard: only subtract if programs >= 2, else clamp to 0.
+	cmp programs,2
+	jb  _clamp_programs
 	sub programs,2
+	jmp _count_done
+	_clamp_programs:
+	mov programs,0
+	_count_done:
 	ret
 count_programs endp
 
@@ -546,13 +568,14 @@ menu_up proc near
 	jnz _sel_not_0
 		;if(menu_scroll > 0)
 		cmp menu_scroll,0
-		jng _is_not_greater		
+		jng _up_done		
 			dec menu_scroll		;menu_scroll--;
-		_is_not_greater:
-			jmp _main_loop
-		;else
-		_sel_not_0: 			
-			dec menu_selected	;menu_selected--;
+		_up_done:
+		; Return to caller; _main_loop will jmp back to itself after the call.
+		ret
+	;else
+	_sel_not_0: 			
+		dec menu_selected	;menu_selected--;
 	ret
 menu_up endp
 
@@ -568,17 +591,19 @@ menu_down proc near
 		add ax,15				;menu_scroll + 15
 		;if (menu_scroll + 15 < programs-1)
 		cmp ax,programs
-		jnb _is_not_below		
+		jnb _down_at_limit		
 			inc menu_scroll			;menu_scroll++;
-		_is_not_below:
-			jmp _main_loop
-		;else
-		_sel_not_15:
-			;if (menu_selected < programs)
-			mov ax,programs
-			cmp menu_selected,ax
-			jnb _is_not_below
-			inc menu_selected		;menu_selected++;
+		_down_at_limit:
+		; Return to caller; _main_loop will jmp back to itself after the call.
+		ret
+	;else
+	_sel_not_15:
+		;if (menu_selected < programs)
+		mov ax,programs
+		cmp menu_selected,ax
+		jnb _down_done
+		inc menu_selected		;menu_selected++;
+	_down_done:
 	ret
 menu_down endp
 
@@ -604,7 +629,9 @@ save_SP					dw 0
 programs				dw 0
 menu_scroll 			dw 0
 menu_selected 			dw 0
-start_dir_path   		db "_:\ ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+; FIX 1: INT 21h AH=47h can return up to 64 bytes; buffer was only 30 bytes
+; after the "C:\" prefix. Expanded to 68 bytes total (4 prefix + 64 path).
+start_dir_path   		db "_:\ ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 LIST_LINE_LENGTH		dw 110	;Line length of list.txt
 file_handle				dw 0
@@ -612,7 +639,9 @@ read_buffer				db 110 dup (0) ;
 read_lines				dw 16
 
 LIST_FILE 				db 'LIST.TXT',0
-path1					db 33 dup (0) 
+; FIX 2: path1 was 33 bytes; loopA writes 32 bytes leaving only 1 byte for
+; the required null terminator. Expanded to 34 bytes to make it explicit.
+path1					db 34 dup (0) 
 exec1					db 11h,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0Dh
 
 ;Read Thumbnail variables
